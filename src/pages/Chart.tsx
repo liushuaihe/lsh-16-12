@@ -60,18 +60,26 @@ export default function Chart() {
 
   const handleCloseAlert = async (alertId: string) => {
     if (!user) return
+    setAlertMessage(null)
     try {
       await api.closeAlert(alertId, user.id)
-      fetchData()
-    } catch {}
+      setAlertMessage({ type: "success", text: "预警已关闭" })
+      await fetchData()
+    } catch (err) {
+      setAlertMessage({ type: "error", text: err instanceof Error ? err.message : "关闭失败" })
+    }
   }
 
   const handleDeleteAlert = async (alertId: string) => {
     if (!user) return
+    setAlertMessage(null)
     try {
       await api.deleteAlert(alertId, user.id)
-      fetchData()
-    } catch {}
+      setAlertMessage({ type: "success", text: "预警已删除" })
+      await fetchData()
+    } catch (err) {
+      setAlertMessage({ type: "error", text: err instanceof Error ? err.message : "删除失败" })
+    }
   }
 
   return (
@@ -322,8 +330,12 @@ function PriceChart({ data, alerts }: { data: PricePoint[]; alerts: PriceAlert[]
     ctx.clearRect(0, 0, w, h)
 
     const prices = data.map((d) => d.price)
-    const minP = Math.min(...prices)
-    const maxP = Math.max(...prices)
+    const activeAlertPrices = alerts
+      .filter((a) => a.status === "active" || a.status === "triggered")
+      .map((a) => a.thresholdPrice)
+    const allRelevantPrices = [...prices, ...activeAlertPrices]
+    const minP = Math.min(...allRelevantPrices)
+    const maxP = Math.max(...allRelevantPrices)
     const range = maxP - minP || 1
 
     const chartW = w - padding.left - padding.right
@@ -374,8 +386,6 @@ function PriceChart({ data, alerts }: { data: PricePoint[]; alerts: PriceAlert[]
 
     alerts.forEach((alert) => {
       const price = alert.thresholdPrice
-      if (price < minP || price > maxP) return
-
       const y = padding.top + (1 - (price - minP) / range) * chartH
 
       ctx.setLineDash([4, 4])
@@ -409,11 +419,23 @@ function PriceChart({ data, alerts }: { data: PricePoint[]; alerts: PriceAlert[]
     alerts.forEach((alert) => {
       if (alert.status !== "triggered" || !alert.triggeredAt || !alert.triggeredPrice) return
 
-      const timeRange = data.length > 1
-        ? data[data.length - 1].timestamp - data[0].timestamp
-        : 1
-      const xOffset = ((alert.triggeredAt - data[0].timestamp) / timeRange) * chartW
-      const x = padding.left + Math.max(0, Math.min(chartW, xOffset))
+      let x = padding.left
+      if (data.length >= 2) {
+        const triggeredTs = alert.triggeredAt
+        let idx = 0
+        for (let i = 1; i < data.length; i++) {
+          if (data[i].timestamp > triggeredTs) break
+          idx = i
+        }
+        const nextIdx = Math.min(idx + 1, data.length - 1)
+        if (nextIdx > idx) {
+          const ratio = (triggeredTs - data[idx].timestamp) / (data[nextIdx].timestamp - data[idx].timestamp)
+          const interpIdx = idx + Math.max(0, Math.min(1, ratio))
+          x = padding.left + (interpIdx / (data.length - 1)) * chartW
+        } else {
+          x = padding.left + (idx / (data.length - 1)) * chartW
+        }
+      }
 
       const y = padding.top + (1 - (alert.triggeredPrice - minP) / range) * chartH
 

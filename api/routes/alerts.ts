@@ -50,12 +50,12 @@ router.post("/:id/close", (req: Request, res: Response) => {
 
 router.delete("/:id", (req: Request, res: Response) => {
   const { id } = req.params
-  const { userId } = req.body
+  const { userId } = req.query
   if (!userId) {
     res.status(400).json({ error: "缺少用户ID" })
     return
   }
-  const result = alerts.deleteAlert(id, userId)
+  const result = alerts.deleteAlert(id, userId as string)
   if (!result.success) {
     res.status(400).json({ error: result.message })
   } else {

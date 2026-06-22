@@ -77,8 +77,7 @@ export const api = {
     }),
 
   deleteAlert: (alertId: string, userId: string) =>
-    request<{ success: boolean; message: string }>(`/alerts/${alertId}`, {
+    request<{ success: boolean; message: string }>(`/alerts/${alertId}?userId=${userId}`, {
       method: "DELETE",
-      body: JSON.stringify({ userId }),
     }),
 }

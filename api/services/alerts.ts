@@ -1,5 +1,5 @@
 import { v4 as uuid } from "uuid"
-import { query, run } from "../db.js"
+import { query, run, persist } from "../db.js"
 import type { PriceAlert, AlertDirection, AlertStatus } from "../../shared/types.js"
 
 export function createAlert(
@@ -20,6 +20,7 @@ export function createAlert(
     "INSERT INTO price_alerts (id, userId, cardId, thresholdPrice, direction, status, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)",
     [alertId, userId, cardId, thresholdPrice, direction, "active", now]
   )
+  persist()
 
   const alert = query<PriceAlert>("SELECT * FROM price_alerts WHERE id = ?", [alertId])[0]
   return alert
@@ -50,6 +51,7 @@ export function closeAlert(alertId: string, userId: string): { success: boolean;
   if (alerts.length === 0) return { success: false, message: "预警不存在" }
 
   run("UPDATE price_alerts SET status = 'closed' WHERE id = ?", [alertId])
+  persist()
   return { success: true, message: "预警已关闭" }
 }
 
@@ -58,6 +60,7 @@ export function deleteAlert(alertId: string, userId: string): { success: boolean
   if (alerts.length === 0) return { success: false, message: "预警不存在" }
 
   run("DELETE FROM price_alerts WHERE id = ?", [alertId])
+  persist()
   return { success: true, message: "预警已删除" }
 }
 
